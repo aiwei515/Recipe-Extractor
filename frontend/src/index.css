@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: #FDF8F3;
+  color: #2a382a;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #e5ebe5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a8bda8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7d9a7d;
+}
+
+/* Smooth focus styles */
+input:focus, button:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #5c7d5c;
+}
+
+/* Loading dots animation */
+.loading-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Recipe card hover effect */
+.recipe-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recipe-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(90, 125, 92, 0.15);
+}
+
+/* Ingredient checkbox style */
+.ingredient-item {
+  position: relative;
+  padding-left: 2rem;
+}
+
+.ingredient-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 2px solid #a8bda8;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.ingredient-item.checked::before {
+  background-color: #5c7d5c;
+  border-color: #5c7d5c;
+}
+
+.ingredient-item.checked::after {
+  content: '✓';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Pattern background */
+.pattern-bg {
+  background-color: #FDF8F3;
+  background-image: 
+    radial-gradient(circle at 25px 25px, #e5ebe5 2px, transparent 0),
+    radial-gradient(circle at 75px 75px, #e5ebe5 2px, transparent 0);
+  background-size: 100px 100px;
+}
