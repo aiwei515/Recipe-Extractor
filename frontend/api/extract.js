@@ -230,17 +230,45 @@ async function handleWebsite(url) {
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
       },
     });
 
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: 'Failed to fetch the URL' }), {
+      return new Response(JSON.stringify({ 
+        error: `Failed to fetch the URL (status: ${response.status}). The website may be blocking automated requests.` 
+      }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const html = await response.text();
+    
+    // Check if we got a meaningful response
+    if (html.length < 1000) {
+      return new Response(JSON.stringify({
+        title: '',
+        ingredients: [],
+        instructions: [],
+        source_url: url,
+        source_type: 'website',
+        error: 'The website returned an empty or blocked response. Try running locally for better results.',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
     const recipe = extractRecipeFromHtml(html, url);
 
     if (!recipe) {
@@ -250,7 +278,7 @@ async function handleWebsite(url) {
         instructions: [],
         source_url: url,
         source_type: 'website',
-        error: 'Could not find recipe data on this page. Try a different recipe URL.',
+        error: 'Could not find structured recipe data on this page. The site may use a format we don\'t support yet, or try running locally.',
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -284,14 +312,18 @@ function extractRecipeFromHtml(html, url) {
 
       if (Array.isArray(data)) {
         for (const item of data) {
-          if (item['@type'] === 'Recipe' || item['@type'] === 'recipe') {
+          const itemType = item['@type'];
+          if (itemType === 'Recipe' || itemType === 'recipe' || 
+              (Array.isArray(itemType) && itemType.includes('Recipe'))) {
             data = item;
             break;
           }
         }
       }
 
-      if (data['@type'] === 'Recipe' || data['@type'] === 'recipe') {
+      const dataType = data['@type'];
+      if (dataType === 'Recipe' || dataType === 'recipe' || 
+          (Array.isArray(dataType) && dataType.includes('Recipe'))) {
         const ingredients = data.recipeIngredient || [];
         const rawInstructions = data.recipeInstructions || [];
 
