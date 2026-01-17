@@ -82,15 +82,28 @@ async function handleYouTube(videoId, url) {
     const transcript = await fetchYouTubeTranscript(html);
     
     if (!transcript) {
-      return {
-        title: title,
-        ingredients: [],
-        instructions: [],
-        source_url: url,
-        source_type: 'video',
-        platform: 'youtube',
-        error: 'This YouTube video does not have captions available. Try a video with captions/subtitles enabled.',
-      };
+      // Try Whisper transcription if OpenAI API key is available
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          transcript = await transcribeWithWhisper(videoId);
+        } catch (e) {
+          console.error('Whisper transcription failed:', e.message);
+        }
+      }
+      
+      if (!transcript) {
+        return {
+          title: title,
+          ingredients: [],
+          instructions: [],
+          source_url: url,
+          source_type: 'video',
+          platform: 'youtube',
+          error: process.env.OPENAI_API_KEY 
+            ? 'Could not transcribe this video. It may be too long or the audio could not be extracted.'
+            : 'This video has no captions. Add OPENAI_API_KEY to Vercel env vars to enable Whisper transcription, or run locally.',
+        };
+      }
     }
 
     // Parse transcript into recipe
@@ -111,6 +124,57 @@ async function handleYouTube(videoId, url) {
       error: 'Failed to extract from YouTube: ' + error.message,
     };
   }
+}
+
+async function transcribeWithWhisper(videoId) {
+  // Try to get audio URL from YouTube
+  const playerResponse = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  });
+  const html = await playerResponse.text();
+  
+  // Find audio format URL
+  const formatMatch = html.match(/"adaptiveFormats":\s*\[(.*?)\]/s);
+  if (!formatMatch) throw new Error('Could not find audio formats');
+  
+  // Look for audio-only format
+  const audioMatch = formatMatch[1].match(/"url":\s*"([^"]+)"[^}]*"mimeType":\s*"audio/);
+  if (!audioMatch) throw new Error('Could not find audio URL');
+  
+  let audioUrl = audioMatch[1].replace(/\\u0026/g, '&');
+  
+  // Download audio (limited by Vercel timeout)
+  const audioResponse = await fetch(audioUrl);
+  if (!audioResponse.ok) throw new Error('Could not download audio');
+  
+  const audioBuffer = await audioResponse.arrayBuffer();
+  
+  // Check size (Whisper limit is 25MB)
+  if (audioBuffer.byteLength > 25 * 1024 * 1024) {
+    throw new Error('Audio file too large for Whisper API');
+  }
+  
+  // Create form data for Whisper API
+  const formData = new FormData();
+  formData.append('file', new Blob([audioBuffer], { type: 'audio/webm' }), 'audio.webm');
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'text');
+  
+  // Call Whisper API
+  const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: formData,
+  });
+  
+  if (!whisperResponse.ok) {
+    const error = await whisperResponse.text();
+    throw new Error(`Whisper API error: ${error}`);
+  }
+  
+  return await whisperResponse.text();
 }
 
 async function fetchYouTubeTranscript(html) {
